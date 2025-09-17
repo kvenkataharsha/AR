@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">JewelryAR</string>
+    <string-array name="jewelry_array">
+        <item>Necklace</item>
+        <item>Necklace1</item>
+        <item>Necklace2</item>
+        <item>Chain</item>
+        <item>SimpleChain</item>
+    </string-array>
+</resources>

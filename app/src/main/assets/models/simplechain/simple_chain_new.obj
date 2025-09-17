@@ -1,0 +1,32 @@
+# Simple Chain OBJ File
+# Generated for JewelryAR Android App
+# This is a basic simple chain model
+
+# Vertices for simple chain (curved necklace shape)
+v -0.6 0.0 0.0   # Start left
+v -0.5 -0.05 0.0
+v -0.4 -0.08 0.0
+v -0.3 -0.1 0.0
+v -0.2 -0.12 0.0
+v -0.1 -0.15 0.0
+v 0.0 -0.18 0.0  # Bottom center
+v 0.1 -0.15 0.0
+v 0.2 -0.12 0.0
+v 0.3 -0.1 0.0
+v 0.4 -0.08 0.0
+v 0.5 -0.05 0.0
+v 0.6 0.0 0.0    # End right
+
+# Create a simple line of connected segments
+# Each segment connects two adjacent vertices
+f 1 2 3
+f 2 3 4
+f 3 4 5
+f 4 5 6
+f 5 6 7
+f 6 7 8
+f 7 8 9
+f 8 9 10
+f 9 10 11
+f 10 11 12
+f 11 12 13

@@ -1,0 +1,7 @@
+# Material file for ring
+newmtl gold_material
+Ka 1.0 0.8 0.0    # Ambient color (gold)
+Kd 1.0 0.843 0.0  # Diffuse color (gold)
+Ks 1.0 1.0 0.5    # Specular color (bright)
+Ns 120.0          # Specular exponent
+illum 2           # Illumination model

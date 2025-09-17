@@ -1,0 +1,53 @@
+# Sample Necklace OBJ File
+# Generated for JewelryAR Android App
+# This is a basic necklace model
+
+# Vertices for necklace chain
+v -0.5 0.0 0.0   # Left end
+v -0.3 -0.1 0.0  # Left curve
+v -0.1 -0.15 0.0 # Left center
+v 0.0 -0.2 0.0   # Bottom center
+v 0.1 -0.15 0.0  # Right center
+v 0.3 -0.1 0.0   # Right curve
+v 0.5 0.0 0.0    # Right end
+
+# Pendant vertices
+v 0.0 -0.25 0.0  # Pendant top
+v -0.05 -0.35 0.0 # Pendant left
+v 0.05 -0.35 0.0  # Pendant right
+v 0.0 -0.4 0.0    # Pendant bottom
+
+# Texture coordinates
+vt 0.0 1.0
+vt 0.167 0.8
+vt 0.333 0.75
+vt 0.5 0.7
+vt 0.667 0.75
+vt 0.833 0.8
+vt 1.0 1.0
+vt 0.5 0.6
+vt 0.4 0.3
+vt 0.6 0.3
+vt 0.5 0.0
+
+# Normals (pointing outward)
+vn 0.0 0.0 1.0
+vn 0.0 0.0 1.0
+vn 0.0 0.0 1.0
+vn 0.0 0.0 1.0
+
+# Chain faces (triangular segments for better visibility)
+f 1 2 3
+f 2 3 4
+f 3 4 5
+f 4 5 6
+f 5 6 7
+
+# Pendant faces
+f 8 9 10
+f 8 10 11
+f 9 11 10
+
+# Material definition
+mtllib sample_necklace.mtl
+usemtl gold_material
