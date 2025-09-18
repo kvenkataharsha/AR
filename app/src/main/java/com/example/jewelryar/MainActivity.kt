@@ -194,6 +194,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadNecklaceModel() {
         selectedJewelryType = "Necklace"
+        jewelryOverlay.setSelectedJewelry("Necklace")
         statusText.text = "Necklace selected - Look at camera"
         Toast.makeText(this, "Necklace selected - Position your face in the camera", Toast.LENGTH_SHORT).show()
         startFaceTracking()
@@ -201,6 +202,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadNecklace1Model() {
         selectedJewelryType = "Necklace1"
+        jewelryOverlay.setSelectedJewelry("Necklace1")
         statusText.text = "Necklace1 selected - Look at camera"
         Toast.makeText(this, "Necklace1 selected - Position your face in the camera", Toast.LENGTH_SHORT).show()
         startFaceTracking()
@@ -208,6 +210,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadNecklace2Model() {
         selectedJewelryType = "Necklace2"
+        jewelryOverlay.setSelectedJewelry("Necklace2")
         statusText.text = "Necklace2 selected - Look at camera"
         Toast.makeText(this, "Necklace2 selected - Position your face in the camera", Toast.LENGTH_SHORT).show()
         startFaceTracking()
@@ -215,6 +218,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadChainModel() {
         selectedJewelryType = "Chain"
+        jewelryOverlay.setSelectedJewelry("Chain")
         statusText.text = "Chain selected - Look at camera"
         Toast.makeText(this, "Chain selected - Position your face in the camera", Toast.LENGTH_SHORT).show()
         startFaceTracking()
@@ -222,6 +226,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadSimpleChainModel() {
         selectedJewelryType = "SimpleChain"
+        jewelryOverlay.setSelectedJewelry("SimpleChain")
         statusText.text = "Simple Chain selected - Look at camera"
         Toast.makeText(this, "Simple Chain selected - Position your face in the camera", Toast.LENGTH_SHORT).show()
         startFaceTracking()
@@ -249,6 +254,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun load2DNecklaceImage() {
         selectedJewelryType = "2D_Necklace"
+        jewelryOverlay.setSelectedJewelry("2D_Necklace")
         statusText.text = "2D Necklace selected - Look at camera"
         Toast.makeText(this, "2D Necklace selected - Position your face in the camera", Toast.LENGTH_SHORT).show()
         startFaceTracking()
@@ -256,6 +262,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun load2DChainImage() {
         selectedJewelryType = "2D_Chain"
+        jewelryOverlay.setSelectedJewelry("2D_Chain")
         statusText.text = "2D Chain selected - Look at camera"
         Toast.makeText(this, "2D Chain selected - Position your face in the camera", Toast.LENGTH_SHORT).show()
         startFaceTracking()
@@ -263,6 +270,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun load2DPendantImage() {
         selectedJewelryType = "2D_Pendant"
+        jewelryOverlay.setSelectedJewelry("2D_Pendant")
         statusText.text = "2D Pendant selected - Look at camera"
         Toast.makeText(this, "2D Pendant selected - Position your face in the camera", Toast.LENGTH_SHORT).show()
         startFaceTracking()

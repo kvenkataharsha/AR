@@ -222,6 +222,11 @@ class JewelryOverlayView @JvmOverloads constructor(
                 ModelViewerDialog(context, it) { scale, rotation ->
                     appliedScale = scale
                     appliedRotation = rotation
+                    // Update the main renderer with new values
+                    modelRenderer?.scale = scale
+                    modelRenderer?.rotationX = rotation[0]
+                    modelRenderer?.rotationY = rotation[1]
+                    glSurfaceView?.requestRender()
                     invalidate() // Redraw with new values
                 }.show()
             }
@@ -248,10 +253,16 @@ class JewelryOverlayView @JvmOverloads constructor(
                 modelRenderer = ModelRenderer(context, model)
                 glSurfaceView?.setRenderer(modelRenderer)
                 glSurfaceView?.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
-
+                
+                // Show the dialog for model adjustment
                 ModelViewerDialog(context, model) { scale, rotation ->
                     appliedScale = scale
                     appliedRotation = rotation
+                    // Update the main renderer with new values
+                    modelRenderer?.scale = scale
+                    modelRenderer?.rotationX = rotation[0]
+                    modelRenderer?.rotationY = rotation[1]
+                    glSurfaceView?.requestRender()
                     invalidate() // Redraw with new values
                 }.show()
             }
@@ -373,21 +384,8 @@ class JewelryOverlayView @JvmOverloads constructor(
                     Log.d("OBJ_PARSER", "3. Model3D object created successfully.")
                     post {
                         current3DModel = model3D
-                        // If a renderer already exists, update it on the GL thread; otherwise set a new renderer
-                        if (modelRenderer != null && glSurfaceView != null) {
-                            // Check if GLSurfaceView is ready before calling queueEvent
-                            try {
-                                glSurfaceView?.queueEvent {
-                                    modelRenderer?.updateModel(model3D)
-                                }
-                                glSurfaceView?.requestRender()
-                            } catch (e: Exception) {
-                                Log.e("JewelryOverlay", "GLSurfaceView not ready, creating new renderer", e)
-                                onModelLoaded(model3D)
-                            }
-                        } else {
-                            onModelLoaded(model3D)
-                        }
+                        // Always create a new renderer for each model to ensure proper initialization
+                        onModelLoaded(model3D)
                         invalidate()
                     }
                 } else {
