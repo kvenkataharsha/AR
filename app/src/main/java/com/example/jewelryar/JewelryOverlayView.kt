@@ -151,6 +151,12 @@ class JewelryOverlayView @JvmOverloads constructor(
         this.imageWidth = imageWidth
         this.imageHeight = imageHeight
         this.isFrontCamera = isFront
+        
+        // Early return if no jewelry is selected to prevent crashes
+        if (jewelry.isEmpty()) {
+            Log.d("JewelryOverlay", "No jewelry selected, skipping face processing")
+            return
+        }
 
         // Only update if we have a valid face with sufficient confidence
         if (face != null) {
@@ -185,27 +191,38 @@ class JewelryOverlayView @JvmOverloads constructor(
         // Only calculate positioning if we have a current face
         currentFace?.let {
             faceScale = calculateScale(it)
-            // Update the renderer if it exists
+            // Update the renderer if it exists and GLSurfaceView is ready
             modelRenderer?.let { renderer ->
-                val neckPoints = calculateNeckPoints(it)
-                val headRotation = calculateHeadRotation(it)
+                glSurfaceView?.let { glView ->
+                    if (glView.renderer != null) {
+                        val neckPoints = calculateNeckPoints(it)
+                        val headRotation = calculateHeadRotation(it)
 
-                // This is a simplification. A proper implementation would convert screen coordinates
-                // to OpenGL world coordinates. For now, we'll pass normalized values.
-                renderer.scale = appliedScale * 0.1f // Adjust scale for OpenGL
-                renderer.rotationX = appliedRotation[0] + headRotation[0]
-                renderer.rotationY = appliedRotation[1] + headRotation[1]
-                glSurfaceView?.requestRender()
+                        // This is a simplification. A proper implementation would convert screen coordinates
+                        // to OpenGL world coordinates. For now, we'll pass normalized values.
+                        renderer.scale = appliedScale * 0.1f // Adjust scale for OpenGL
+                        renderer.rotationX = appliedRotation[0] + headRotation[0]
+                        renderer.rotationY = appliedRotation[1] + headRotation[1]
+                        glView.requestRender()
+                    } else {
+                        Log.d("JewelryOverlay", "GLSurfaceView not ready for rendering")
+                    }
+                }
             }
         } ?: run {
-            // If no face, clear the GLSurfaceView
-            glSurfaceView?.apply {
-                try {
-                    queueEvent {
-                        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
+            // If no face, clear the GLSurfaceView only if it's properly initialized
+            glSurfaceView?.let { glView ->
+                // Check if GLSurfaceView is ready by checking if it has a renderer
+                if (glView.renderer != null) {
+                    try {
+                        glView.queueEvent {
+                            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("JewelryOverlay", "GLSurfaceView not ready for clear", e)
                     }
-                } catch (e: Exception) {
-                    Log.e("JewelryOverlay", "GLSurfaceView not ready for clear", e)
+                } else {
+                    Log.d("JewelryOverlay", "GLSurfaceView has no renderer, skipping clear")
                 }
             }
         }
@@ -271,8 +288,12 @@ class JewelryOverlayView @JvmOverloads constructor(
                         glSurfaceView?.requestRender()
                         invalidate() // Redraw with new values
                     }
-                    dialog.show()
-                    Log.d("JewelryOverlay", "🎯 Dialog shown successfully")
+                    
+                    // Post the dialog show to ensure it's on the UI thread
+                    post {
+                        dialog.show()
+                        Log.d("JewelryOverlay", "🎯 Dialog shown successfully")
+                    }
                 } catch (e: Exception) {
                     Log.e("JewelryOverlay", "❌ Error showing dialog", e)
                 }
@@ -287,9 +308,13 @@ class JewelryOverlayView @JvmOverloads constructor(
             // --- NEW, ROBUST OBJ PARSER ---
             try {
                 val modelPath = when (jewelryType.lowercase()) {
-                    "necklace", "necklace1", "necklace2" -> "models/11777_necklace_v1_l3.obj"
-                    "chain", "simplechain", "simple chain" -> "models/11777_necklace_v1_l3.obj" // fallback
-                    else -> "models/11777_necklace_v1_l3.obj"
+                    "necklace" -> "models/necklace/11777_necklace_v1_l3.obj"
+                    "necklace1" -> "models/necklace1/necklace1.obj"
+                    "necklace2" -> "models/necklace2/necklace2.obj"
+                    "chain" -> "models/chain/11779_blueheart_v1_L3.obj"
+                    "simplechain", "simple chain" -> "models/simplechain/simple_chain_new.obj"
+                    "ring" -> "models/ring/sample_ring.obj"
+                    else -> "models/necklace/11777_necklace_v1_l3.obj"
                 }
                 Log.d("OBJ_PARSER", "--- Starting Load for: $modelPath ---")
                 
