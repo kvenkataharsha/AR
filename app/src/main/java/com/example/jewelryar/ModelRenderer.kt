@@ -112,15 +112,24 @@ class ModelRenderer(
         Matrix.frustumM(projectionMatrix, 0, -ratio, ratio, -1f, 1f, 1f, 10f)
     }
 
+    private var loggedInvalidModel = false
+
     override fun onDrawFrame(gl: GL10?) {
         // Don't draw if the model is invalid
         if (model.vertices.isEmpty() || model.indices.isEmpty()) {
-            Log.w("ModelRenderer", "⚠️ Model is invalid - vertices: ${model.vertices.size}, indices: ${model.indices.size}")
+            // Only log once to avoid spam
+            if (!loggedInvalidModel) {
+                Log.w("ModelRenderer", "⚠️ Model is invalid or has no data, skipping draw call. Vertices: ${model.vertices.size}, Indices: ${model.indices.size}")
+                loggedInvalidModel = true
+            }
             return
         }
+        loggedInvalidModel = false // Reset if model becomes valid
 
-        Log.d("ModelRenderer", "🎨 Drawing frame - vertices: ${model.vertices.size}, indices: ${model.indices.size}")
-        Log.d("ModelRenderer", "🎨 Current scale: $scale, rotation: ($rotationX, $rotationY)")
+        Log.d("ModelRenderer", "🎨 Drawing frame - Vertices: ${model.vertexCount}, Indices: ${model.indices.size}")
+        Log.d("ModelRenderer", "   - Transform: Scale=${String.format("%.2f", scale)}, RotX=${String.format("%.1f", rotationX)}, RotY=${String.format("%.1f", rotationY)}")
+        Log.d("ModelRenderer", "   - Position: X=${String.format("%.2f", positionX)}, Y=${String.format("%.2f", positionY)}")
+
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
 
         GLES20.glUseProgram(shaderProgram)
@@ -139,9 +148,9 @@ class ModelRenderer(
         GLES20.glEnableVertexAttribArray(normalHandle)
 
         // Draw the model
-        Log.d("ModelRenderer", "🎨 Drawing ${model.indices.size / 3} triangles")
+        Log.d("ModelRenderer", "   - Drawing ${model.indices.size / 3} triangles...")
         GLES20.glDrawElements(GLES20.GL_TRIANGLES, model.indices.size, GLES20.GL_UNSIGNED_SHORT, indexBuffer)
-        Log.d("ModelRenderer", "🎨 Draw call completed")
+        Log.d("ModelRenderer", "   - Draw call completed successfully.")
 
         GLES20.glDisableVertexAttribArray(positionHandle)
         GLES20.glDisableVertexAttribArray(normalHandle)
@@ -234,7 +243,7 @@ class ModelRenderer(
     }
 
     private fun setupMatrices() {
-        Matrix.setLookAtM(viewMatrix, 0, 0f, 0f, 2.5f, 0f, 0f, 0f, 0f, 1f, 0f)
+        Matrix.setLookAtM(viewMatrix, 0, 0f, 0f, 2.5f, 0f, 0f, 0f, 1f, 0f)
 
         Matrix.setIdentityM(modelMatrix, 0)
         Matrix.scaleM(modelMatrix, 0, scale, scale, scale)
