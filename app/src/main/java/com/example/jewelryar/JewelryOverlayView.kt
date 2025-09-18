@@ -205,28 +205,27 @@ class JewelryOverlayView @JvmOverloads constructor(
                 val neckPoints = calculateNeckPoints(face)
                 val headRotation = calculateHeadRotation(face)
 
-                Log.d("JewelryOverlay", "🎯 Face data:")
-                Log.d("JewelryOverlay", "   - Face scale: $faceScale")
-                Log.d("JewelryOverlay", "   - Neck points: $neckPoints")
-                Log.d("JewelryOverlay", "   - Head rotation: ${headRotation.contentToString()}")
-                Log.d("JewelryOverlay", "   - Applied scale: $appliedScale")
-                Log.d("JewelryOverlay", "   - Applied rotation: ${appliedRotation.contentToString()}")
+                // --- FIX START: CONTINUOUSLY UPDATE RENDERER DATA ---
 
-                // This is a simplification. A proper implementation would convert screen coordinates
-                // to OpenGL world coordinates. For now, we'll pass normalized values.
-                val finalScale = appliedScale * 0.5f // Increased scale for better visibility
-                currentRenderer.scale = finalScale
+                // 1. Convert neck screen coordinates to OpenGL clip space (-1 to 1)
+                // AND apply the vertical offset to move the model down.
+                val neckScreenY = neckPoints.first.y + 8.0f // Move down by 8 pixels
+                val normalizedX = (neckPoints.first.x - viewWidth / 2f) / (viewWidth / 2f)
+                val normalizedY = -(neckScreenY - viewHeight / 2f) / (viewHeight / 2f) // Y is inverted in OpenGL
+
+                // 2. Update all transformation properties on the renderer every frame
+                currentRenderer.positionX = normalizedX
+                currentRenderer.positionY = normalizedY
+                currentRenderer.scale = appliedScale * faceScale // Combine applied scale with face scale
                 currentRenderer.rotationX = appliedRotation[0] + headRotation[0]
                 currentRenderer.rotationY = appliedRotation[1] + headRotation[1]
-                
-                Log.d("JewelryOverlay", "🎯 Final renderer values:")
-                Log.d("JewelryOverlay", "   - Scale: $finalScale")
-                Log.d("JewelryOverlay", "   - Rotation X: ${currentRenderer.rotationX}")
-                Log.d("JewelryOverlay", "   - Rotation Y: ${currentRenderer.rotationY}")
-                
-                Log.d("JewelryOverlay", "🎯 Requesting render...")
+
+                Log.d("JewelryOverlay", "🎯 Updating Renderer: Pos=(${String.format("%.2f", normalizedX)}, ${String.format("%.2f", normalizedY)}), Scale=${String.format("%.2f", currentRenderer.scale)}")
+
+                // 3. Request a new frame to be drawn with the updated data
                 currentGLView.requestRender()
-                Log.d("JewelryOverlay", "🎯 Render requested successfully")
+
+                // --- FIX END ---
             } else {
                 Log.w("JewelryOverlay", "⚠️ Cannot render - missing components:")
                 Log.w("JewelryOverlay", "   - Renderer: ${if (currentRenderer != null) "OK" else "MISSING"}")
