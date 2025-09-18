@@ -120,6 +120,7 @@ class ModelRenderer(
         }
 
         Log.d("ModelRenderer", "🎨 Drawing frame - vertices: ${model.vertices.size}, indices: ${model.indices.size}")
+        Log.d("ModelRenderer", "🎨 Current scale: $scale, rotation: ($rotationX, $rotationY)")
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
 
         GLES20.glUseProgram(shaderProgram)
@@ -138,7 +139,9 @@ class ModelRenderer(
         GLES20.glEnableVertexAttribArray(normalHandle)
 
         // Draw the model
+        Log.d("ModelRenderer", "🎨 Drawing ${model.indices.size / 3} triangles")
         GLES20.glDrawElements(GLES20.GL_TRIANGLES, model.indices.size, GLES20.GL_UNSIGNED_SHORT, indexBuffer)
+        Log.d("ModelRenderer", "🎨 Draw call completed")
 
         GLES20.glDisableVertexAttribArray(positionHandle)
         GLES20.glDisableVertexAttribArray(normalHandle)

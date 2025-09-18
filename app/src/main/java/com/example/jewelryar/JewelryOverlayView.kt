@@ -190,27 +190,51 @@ class JewelryOverlayView @JvmOverloads constructor(
         
         // Only calculate positioning if we have a current face
         currentFace?.let { face ->
+            Log.d("JewelryOverlay", "🎯 Processing face for 3D rendering")
             faceScale = calculateScale(face)
+            
             // Update the renderer if it exists and GLSurfaceView is ready
             val currentRenderer = modelRenderer
             val currentGLView = glSurfaceView
             
-            if (currentRenderer != null && currentGLView != null) {
+            Log.d("JewelryOverlay", "🎯 Renderer status: ${if (currentRenderer != null) "EXISTS" else "NULL"}")
+            Log.d("JewelryOverlay", "🎯 GLView status: ${if (currentGLView != null) "EXISTS" else "NULL"}")
+            Log.d("JewelryOverlay", "🎯 Current 3D model: ${if (current3DModel != null) "EXISTS" else "NULL"}")
+            
+            if (currentRenderer != null && currentGLView != null && current3DModel != null) {
                 val neckPoints = calculateNeckPoints(face)
                 val headRotation = calculateHeadRotation(face)
 
+                Log.d("JewelryOverlay", "🎯 Face data:")
+                Log.d("JewelryOverlay", "   - Face scale: $faceScale")
+                Log.d("JewelryOverlay", "   - Neck points: $neckPoints")
+                Log.d("JewelryOverlay", "   - Head rotation: ${headRotation.contentToString()}")
+                Log.d("JewelryOverlay", "   - Applied scale: $appliedScale")
+                Log.d("JewelryOverlay", "   - Applied rotation: ${appliedRotation.contentToString()}")
+
                 // This is a simplification. A proper implementation would convert screen coordinates
                 // to OpenGL world coordinates. For now, we'll pass normalized values.
-                currentRenderer.scale = appliedScale * 0.3f // Increased scale for better visibility
+                val finalScale = appliedScale * 0.5f // Increased scale for better visibility
+                currentRenderer.scale = finalScale
                 currentRenderer.rotationX = appliedRotation[0] + headRotation[0]
                 currentRenderer.rotationY = appliedRotation[1] + headRotation[1]
                 
-                Log.d("JewelryOverlay", "🎯 Rendering 3D model on face: scale=${currentRenderer.scale}, rotation=(${currentRenderer.rotationX}, ${currentRenderer.rotationY})")
+                Log.d("JewelryOverlay", "🎯 Final renderer values:")
+                Log.d("JewelryOverlay", "   - Scale: $finalScale")
+                Log.d("JewelryOverlay", "   - Rotation X: ${currentRenderer.rotationX}")
+                Log.d("JewelryOverlay", "   - Rotation Y: ${currentRenderer.rotationY}")
+                
+                Log.d("JewelryOverlay", "🎯 Requesting render...")
                 currentGLView.requestRender()
+                Log.d("JewelryOverlay", "🎯 Render requested successfully")
             } else {
-                Log.d("JewelryOverlay", "GLSurfaceView or renderer not ready for rendering")
+                Log.w("JewelryOverlay", "⚠️ Cannot render - missing components:")
+                Log.w("JewelryOverlay", "   - Renderer: ${if (currentRenderer != null) "OK" else "MISSING"}")
+                Log.w("JewelryOverlay", "   - GLView: ${if (currentGLView != null) "OK" else "MISSING"}")
+                Log.w("JewelryOverlay", "   - 3D Model: ${if (current3DModel != null) "OK" else "MISSING"}")
             }
         } ?: run {
+            Log.d("JewelryOverlay", "🎯 No face detected, clearing GL view")
             // If no face, clear the GLSurfaceView only if it's properly initialized
             glSurfaceView?.let { glView ->
                 // Try to clear the GLSurfaceView
@@ -228,20 +252,26 @@ class JewelryOverlayView @JvmOverloads constructor(
     }
 
     fun setSelectedJewelry(jewelry: String) {
+        Log.d("JewelryOverlay", "🎯 setSelectedJewelry called with: '$jewelry'")
+        
         // Prevent redundant loading of the same model
         if (jewelry == selectedJewelry && current3DModel != null) {
             Log.d("JewelryOverlay", "✅ '$jewelry' is already selected and loaded.")
             // Still show the dialog if the model is already loaded but dialog is requested again
             current3DModel?.let {
+                Log.d("JewelryOverlay", "🎯 Showing dialog for existing model")
                 ModelViewerDialog(context, it) { scale, rotation ->
+                    Log.d("JewelryOverlay", "🎯 Dialog apply clicked: scale=$scale, rotation=${rotation.contentToString()}")
                     appliedScale = scale
                     appliedRotation = rotation
-                    // Update the main renderer with new values
-                    modelRenderer?.scale = scale
-                    modelRenderer?.rotationX = rotation[0]
-                    modelRenderer?.rotationY = rotation[1]
-                    glSurfaceView?.requestRender()
-                    invalidate() // Redraw with new values
+                    // Also apply to the main renderer immediately
+                    modelRenderer?.let {
+                        it.scale = scale
+                        it.rotationX = rotation[0]
+                        it.rotationY = rotation[1]
+                    }
+                    glSurfaceView?.requestRender() // Re-render with new settings
+                    invalidate() // Redraw 2D overlay info
                 }.show()
             }
             return
@@ -273,35 +303,19 @@ class JewelryOverlayView @JvmOverloads constructor(
                 Log.d("JewelryOverlay", "🎯 Renderer set up, creating dialog")
                 
                 // Show the dialog for model adjustment
-                try {
-                    val dialog = ModelViewerDialog(context, model) { scale, rotation ->
-                        Log.d("JewelryOverlay", "🎯 Dialog apply clicked: scale=$scale, rotation=${rotation.contentToString()}")
-                        appliedScale = scale
-                        appliedRotation = rotation
-                        
-                        // Update the main renderer with new values
-                        modelRenderer?.let { renderer ->
-                            renderer.scale = scale
-                            renderer.rotationX = rotation[0]
-                            renderer.rotationY = rotation[1]
-                            Log.d("JewelryOverlay", "🎯 Updated main renderer: scale=$scale, rotation=${rotation.contentToString()}")
-                        }
-                        
-                        // Force a render update
-                        glSurfaceView?.requestRender()
-                        invalidate() // Redraw with new values
-                        
-                        Log.d("JewelryOverlay", "🎯 Applied settings to main view")
+                ModelViewerDialog(context, model) { scale, rotation ->
+                    Log.d("JewelryOverlay", "🎯 Dialog apply clicked: scale=$scale, rotation=${rotation.contentToString()}")
+                    appliedScale = scale
+                    appliedRotation = rotation
+                    // Also apply to the main renderer immediately
+                    modelRenderer?.let {
+                        it.scale = scale
+                        it.rotationX = rotation[0]
+                        it.rotationY = rotation[1]
                     }
-                    
-                    // Post the dialog show to ensure it's on the UI thread
-                    post {
-                        dialog.show()
-                        Log.d("JewelryOverlay", "🎯 Dialog shown successfully")
-                    }
-                } catch (e: Exception) {
-                    Log.e("JewelryOverlay", "❌ Error showing dialog", e)
-                }
+                    glSurfaceView?.requestRender() // Re-render with new settings
+                    invalidate() // Redraw 2D overlay info
+                }.show()
             }
         }
 
