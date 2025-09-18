@@ -195,7 +195,7 @@ class JewelryOverlayView @JvmOverloads constructor(
             val currentRenderer = modelRenderer
             val currentGLView = glSurfaceView
             
-            if (currentRenderer != null && currentGLView != null && currentGLView.renderer != null) {
+            if (currentRenderer != null && currentGLView != null) {
                 val neckPoints = calculateNeckPoints(face)
                 val headRotation = calculateHeadRotation(face)
 
@@ -211,17 +211,13 @@ class JewelryOverlayView @JvmOverloads constructor(
         } ?: run {
             // If no face, clear the GLSurfaceView only if it's properly initialized
             glSurfaceView?.let { glView ->
-                // Check if GLSurfaceView is ready by checking if it has a renderer
-                if (glView.renderer != null) {
-                    try {
-                        glView.queueEvent {
-                            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
-                        }
-                    } catch (e: Exception) {
-                        Log.e("JewelryOverlay", "GLSurfaceView not ready for clear", e)
+                // Try to clear the GLSurfaceView
+                try {
+                    glView.queueEvent {
+                        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
                     }
-                } else {
-                    Log.d("JewelryOverlay", "GLSurfaceView has no renderer, skipping clear")
+                } catch (e: Exception) {
+                    Log.e("JewelryOverlay", "GLSurfaceView not ready for clear", e)
                 }
             }
         }
