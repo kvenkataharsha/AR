@@ -193,6 +193,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadNecklaceModel() {
+        Log.d("MainActivity", "🎯 loadNecklaceModel called")
         selectedJewelryType = "Necklace"
         jewelryOverlay.setSelectedJewelry("Necklace")
         statusText.text = "Necklace selected - Look at camera"

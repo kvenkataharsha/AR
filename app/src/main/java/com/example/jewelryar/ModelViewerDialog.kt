@@ -25,9 +25,11 @@ class ModelViewerDialog(
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        android.util.Log.d("ModelViewerDialog", "🎯 Dialog onCreate called")
         requestWindowFeature(Window.FEATURE_NO_TITLE)
 
         setContentView(R.layout.dialog_model_viewer)
+        android.util.Log.d("ModelViewerDialog", "🎯 Dialog layout set")
 
         glSurfaceView = findViewById(R.id.gl_surface_view)
         applyButton = findViewById(R.id.btn_apply)
@@ -68,9 +70,18 @@ class ModelViewerDialog(
         }
 
         applyButton.setOnClickListener {
+            android.util.Log.d("ModelViewerDialog", "🎯 Apply button clicked")
             onApply(renderer.scale, floatArrayOf(renderer.rotationX, renderer.rotationY, 0f))
             dismiss()
         }
+        
+        android.util.Log.d("ModelViewerDialog", "🎯 Dialog setup complete")
+    }
+    
+    override fun show() {
+        android.util.Log.d("ModelViewerDialog", "🎯 Dialog show() called")
+        super.show()
+        android.util.Log.d("ModelViewerDialog", "🎯 Dialog show() completed")
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {

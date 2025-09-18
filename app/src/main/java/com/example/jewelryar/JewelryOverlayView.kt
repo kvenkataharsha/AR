@@ -249,22 +249,33 @@ class JewelryOverlayView @JvmOverloads constructor(
             is2DMode = false
             current2DImage = null
             load3DModel(jewelry) { model ->
+                Log.d("JewelryOverlay", "🎯 3D Model loaded successfully, setting up renderer and dialog")
+                
                 // Setup the renderer for the main view
                 modelRenderer = ModelRenderer(context, model)
                 glSurfaceView?.setRenderer(modelRenderer)
                 glSurfaceView?.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
                 
+                Log.d("JewelryOverlay", "🎯 Renderer set up, creating dialog")
+                
                 // Show the dialog for model adjustment
-                ModelViewerDialog(context, model) { scale, rotation ->
-                    appliedScale = scale
-                    appliedRotation = rotation
-                    // Update the main renderer with new values
-                    modelRenderer?.scale = scale
-                    modelRenderer?.rotationX = rotation[0]
-                    modelRenderer?.rotationY = rotation[1]
-                    glSurfaceView?.requestRender()
-                    invalidate() // Redraw with new values
-                }.show()
+                try {
+                    val dialog = ModelViewerDialog(context, model) { scale, rotation ->
+                        Log.d("JewelryOverlay", "🎯 Dialog apply clicked: scale=$scale, rotation=${rotation.contentToString()}")
+                        appliedScale = scale
+                        appliedRotation = rotation
+                        // Update the main renderer with new values
+                        modelRenderer?.scale = scale
+                        modelRenderer?.rotationX = rotation[0]
+                        modelRenderer?.rotationY = rotation[1]
+                        glSurfaceView?.requestRender()
+                        invalidate() // Redraw with new values
+                    }
+                    dialog.show()
+                    Log.d("JewelryOverlay", "🎯 Dialog shown successfully")
+                } catch (e: Exception) {
+                    Log.e("JewelryOverlay", "❌ Error showing dialog", e)
+                }
             }
         }
 
@@ -281,6 +292,16 @@ class JewelryOverlayView @JvmOverloads constructor(
                     else -> "models/11777_necklace_v1_l3.obj"
                 }
                 Log.d("OBJ_PARSER", "--- Starting Load for: $modelPath ---")
+                
+                // Check if file exists first
+                try {
+                    assetManager.open(modelPath).close()
+                    Log.d("OBJ_PARSER", "✅ File exists: $modelPath")
+                } catch (e: Exception) {
+                    Log.e("OBJ_PARSER", "❌ File not found: $modelPath", e)
+                    post { current3DModel = null; invalidate() }
+                    return@Thread
+                }
 
                 // 1. Read all lines and data from the file into temporary lists
                 val tempVertices = mutableListOf<Float>()

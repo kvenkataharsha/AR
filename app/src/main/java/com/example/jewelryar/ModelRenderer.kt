@@ -115,9 +115,11 @@ class ModelRenderer(
     override fun onDrawFrame(gl: GL10?) {
         // Don't draw if the model is invalid
         if (model.vertices.isEmpty() || model.indices.isEmpty()) {
+            Log.w("ModelRenderer", "⚠️ Model is invalid - vertices: ${model.vertices.size}, indices: ${model.indices.size}")
             return
         }
 
+        Log.d("ModelRenderer", "🎨 Drawing frame - vertices: ${model.vertices.size}, indices: ${model.indices.size}")
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
 
         GLES20.glUseProgram(shaderProgram)
