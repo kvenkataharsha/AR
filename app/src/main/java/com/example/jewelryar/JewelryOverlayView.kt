@@ -189,25 +189,24 @@ class JewelryOverlayView @JvmOverloads constructor(
         }
         
         // Only calculate positioning if we have a current face
-        currentFace?.let {
-            faceScale = calculateScale(it)
+        currentFace?.let { face ->
+            faceScale = calculateScale(face)
             // Update the renderer if it exists and GLSurfaceView is ready
-            modelRenderer?.let { renderer ->
-                glSurfaceView?.let { glView ->
-                    if (glView.renderer != null) {
-                        val neckPoints = calculateNeckPoints(it)
-                        val headRotation = calculateHeadRotation(it)
+            val currentRenderer = modelRenderer
+            val currentGLView = glSurfaceView
+            
+            if (currentRenderer != null && currentGLView != null && currentGLView.renderer != null) {
+                val neckPoints = calculateNeckPoints(face)
+                val headRotation = calculateHeadRotation(face)
 
-                        // This is a simplification. A proper implementation would convert screen coordinates
-                        // to OpenGL world coordinates. For now, we'll pass normalized values.
-                        renderer.scale = appliedScale * 0.1f // Adjust scale for OpenGL
-                        renderer.rotationX = appliedRotation[0] + headRotation[0]
-                        renderer.rotationY = appliedRotation[1] + headRotation[1]
-                        glView.requestRender()
-                    } else {
-                        Log.d("JewelryOverlay", "GLSurfaceView not ready for rendering")
-                    }
-                }
+                // This is a simplification. A proper implementation would convert screen coordinates
+                // to OpenGL world coordinates. For now, we'll pass normalized values.
+                currentRenderer.scale = appliedScale * 0.1f // Adjust scale for OpenGL
+                currentRenderer.rotationX = appliedRotation[0] + headRotation[0]
+                currentRenderer.rotationY = appliedRotation[1] + headRotation[1]
+                currentGLView.requestRender()
+            } else {
+                Log.d("JewelryOverlay", "GLSurfaceView or renderer not ready for rendering")
             }
         } ?: run {
             // If no face, clear the GLSurfaceView only if it's properly initialized
