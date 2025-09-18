@@ -201,9 +201,11 @@ class JewelryOverlayView @JvmOverloads constructor(
 
                 // This is a simplification. A proper implementation would convert screen coordinates
                 // to OpenGL world coordinates. For now, we'll pass normalized values.
-                currentRenderer.scale = appliedScale * 0.1f // Adjust scale for OpenGL
+                currentRenderer.scale = appliedScale * 0.3f // Increased scale for better visibility
                 currentRenderer.rotationX = appliedRotation[0] + headRotation[0]
                 currentRenderer.rotationY = appliedRotation[1] + headRotation[1]
+                
+                Log.d("JewelryOverlay", "🎯 Rendering 3D model on face: scale=${currentRenderer.scale}, rotation=(${currentRenderer.rotationX}, ${currentRenderer.rotationY})")
                 currentGLView.requestRender()
             } else {
                 Log.d("JewelryOverlay", "GLSurfaceView or renderer not ready for rendering")
@@ -276,12 +278,20 @@ class JewelryOverlayView @JvmOverloads constructor(
                         Log.d("JewelryOverlay", "🎯 Dialog apply clicked: scale=$scale, rotation=${rotation.contentToString()}")
                         appliedScale = scale
                         appliedRotation = rotation
+                        
                         // Update the main renderer with new values
-                        modelRenderer?.scale = scale
-                        modelRenderer?.rotationX = rotation[0]
-                        modelRenderer?.rotationY = rotation[1]
+                        modelRenderer?.let { renderer ->
+                            renderer.scale = scale
+                            renderer.rotationX = rotation[0]
+                            renderer.rotationY = rotation[1]
+                            Log.d("JewelryOverlay", "🎯 Updated main renderer: scale=$scale, rotation=${rotation.contentToString()}")
+                        }
+                        
+                        // Force a render update
                         glSurfaceView?.requestRender()
                         invalidate() // Redraw with new values
+                        
+                        Log.d("JewelryOverlay", "🎯 Applied settings to main view")
                     }
                     
                     // Post the dialog show to ensure it's on the UI thread
@@ -319,6 +329,13 @@ class JewelryOverlayView @JvmOverloads constructor(
                     Log.d("OBJ_PARSER", "✅ File exists: $modelPath")
                 } catch (e: Exception) {
                     Log.e("OBJ_PARSER", "❌ File not found: $modelPath", e)
+                    Log.e("OBJ_PARSER", "💡 Available files in assets/models:")
+                    try {
+                        val files = assetManager.list("models")
+                        files?.forEach { Log.d("OBJ_PARSER", "   - $it") }
+                    } catch (listEx: Exception) {
+                        Log.e("OBJ_PARSER", "Could not list assets", listEx)
+                    }
                     post { current3DModel = null; invalidate() }
                     return@Thread
                 }
@@ -423,6 +440,8 @@ class JewelryOverlayView @JvmOverloads constructor(
                         faceCount = finalIndices.size / 3
                     )
                     Log.d("OBJ_PARSER", "3. Model3D object created successfully.")
+                    Log.d("OBJ_PARSER", "   - Vertices: ${model3D.vertexCount}, Indices: ${model3D.indices.size}")
+                    Log.d("OBJ_PARSER", "   - First few vertices: ${finalVertices.take(9)}")
                     post {
                         current3DModel = model3D
                         // Always create a new renderer for each model to ensure proper initialization
@@ -431,6 +450,8 @@ class JewelryOverlayView @JvmOverloads constructor(
                     }
                 } else {
                     Log.e("OBJ_PARSER", "3. ERROR: No valid geometry was processed. Model will not be loaded.")
+                    Log.e("OBJ_PARSER", "   - Final vertices: ${finalVertices.size}")
+                    Log.e("OBJ_PARSER", "   - Final indices: ${finalIndices.size}")
                     post { current3DModel = null; invalidate() }
                 }
 
