@@ -37,6 +37,9 @@ class ModelRenderer(
     var rotationX = 0f
     var rotationY = 0f
     var scale = 1.0f
+    var positionX = 0f
+    var positionY = 0f
+    private var loggedInvalidModel = false
 
     private val lightPosInWorldSpace = floatArrayOf(0.0f, 0.0f, 0.0f, 1.0f)
     private val lightPosInEyeSpace = FloatArray(4)
@@ -111,8 +114,6 @@ class ModelRenderer(
         val ratio = width.toFloat() / height.toFloat()
         Matrix.frustumM(projectionMatrix, 0, -ratio, ratio, -1f, 1f, 1f, 10f)
     }
-
-    private var loggedInvalidModel = false
 
     override fun onDrawFrame(gl: GL10?) {
         // Don't draw if the model is invalid
@@ -243,10 +244,14 @@ class ModelRenderer(
     }
 
     private fun setupMatrices() {
-        Matrix.setLookAtM(viewMatrix, 0, 0f, 0f, 2.5f, 0f, 0f, 0f, 1f, 0f)
+        Matrix.setLookAtM(viewMatrix, 0, 0f, 0f, 2.5f, 0f, 0f, 0f, 0f, 1f, 0f)
 
         Matrix.setIdentityM(modelMatrix, 0)
+        // Translate based on screen position
+        Matrix.translateM(modelMatrix, 0, positionX, positionY, 0f)
+        // Then scale
         Matrix.scaleM(modelMatrix, 0, scale, scale, scale)
+        // Then rotate
         Matrix.rotateM(modelMatrix, 0, rotationX, 1f, 0f, 0f)
         Matrix.rotateM(modelMatrix, 0, rotationY, 0f, 1f, 0f)
 
