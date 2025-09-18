@@ -200,8 +200,12 @@ class JewelryOverlayView @JvmOverloads constructor(
         } ?: run {
             // If no face, clear the GLSurfaceView
             glSurfaceView?.apply {
-                queueEvent {
-                    GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
+                try {
+                    queueEvent {
+                        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
+                    }
+                } catch (e: Exception) {
+                    Log.e("JewelryOverlay", "GLSurfaceView not ready for clear", e)
                 }
             }
         }
@@ -371,10 +375,16 @@ class JewelryOverlayView @JvmOverloads constructor(
                         current3DModel = model3D
                         // If a renderer already exists, update it on the GL thread; otherwise set a new renderer
                         if (modelRenderer != null && glSurfaceView != null) {
-                            glSurfaceView?.queueEvent {
-                                modelRenderer?.updateModel(model3D)
+                            // Check if GLSurfaceView is ready before calling queueEvent
+                            try {
+                                glSurfaceView?.queueEvent {
+                                    modelRenderer?.updateModel(model3D)
+                                }
+                                glSurfaceView?.requestRender()
+                            } catch (e: Exception) {
+                                Log.e("JewelryOverlay", "GLSurfaceView not ready, creating new renderer", e)
+                                onModelLoaded(model3D)
                             }
-                            glSurfaceView?.requestRender()
                         } else {
                             onModelLoaded(model3D)
                         }
