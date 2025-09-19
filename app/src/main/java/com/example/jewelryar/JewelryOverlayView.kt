@@ -205,18 +205,29 @@ class JewelryOverlayView @JvmOverloads constructor(
                 val neckPoints = calculateNeckPoints(face)
                 val headRotation = calculateHeadRotation(face)
 
-                // --- THREAD-SAFE FIX START ---
+                // --- FINAL FIX: GUARD CLAUSE FOR ZERO SCALE ---
+
+                val finalScale = appliedScale * faceScale
+
+                // Do not submit a task if the resulting scale is zero. This prevents
+                // the renderer from receiving an invalid state and skipping draws.
+                if (finalScale <= 0.0f) {
+                    Log.w("JewelryOverlay", "⚠️ Calculated scale is zero or negative ($finalScale), skipping render task submission.")
+                    // We still need to tell the renderer to hide the model if it was previously visible
+                    modelRenderer?.submitRenderTask(RenderTask(0f, 0f, 0f, 0f, 0f))
+                    return@let // Exit the 'currentFace?.let' block
+                }
 
                 // 1. Convert neck screen coordinates to OpenGL clip space (-1 to 1)
                 val neckScreenY = neckPoints.first.y + 8.0f // Move down by 8 pixels
                 val normalizedX = (neckPoints.first.x - viewWidth / 2f) / (viewWidth / 2f)
                 val normalizedY = -(neckScreenY - viewHeight / 2f) / (viewHeight / 2f) // Y is inverted in OpenGL
 
-                // 2. Create a new RenderTask with the latest transformation data
+                // 2. Create a new RenderTask with the valid, non-zero scale
                 val renderTask = RenderTask(
                     positionX = normalizedX,
                     positionY = normalizedY,
-                    scale = appliedScale * faceScale,
+                    scale = finalScale,
                     rotationX = appliedRotation[0] + headRotation[0],
                     rotationY = appliedRotation[1] + headRotation[1]
                 )
@@ -225,9 +236,6 @@ class JewelryOverlayView @JvmOverloads constructor(
                 currentRenderer.submitRenderTask(renderTask)
 
                 Log.d("JewelryOverlay", "🎯 Submitted RenderTask: Pos=(${String.format("%.2f", normalizedX)}, ${String.format("%.2f", normalizedY)}), Scale=${String.format("%.2f", renderTask.scale)}")
-
-                // No need to call requestRender() anymore because the mode is RENDERMODE_CONTINUOUSLY
-                // --- THREAD-SAFE FIX END ---
 
             } else {
                 Log.w("JewelryOverlay", "⚠️ Cannot render - missing components:")
