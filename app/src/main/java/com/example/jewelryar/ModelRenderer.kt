@@ -9,8 +9,21 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import java.nio.ShortBuffer
+import java.util.concurrent.ConcurrentLinkedQueue
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
+
+/**
+ * Data class to hold all transformation data for a single render frame.
+ * This object is passed from the UI thread to the GL thread via a queue.
+ */
+data class RenderTask(
+    val positionX: Float,
+    val positionY: Float,
+    val scale: Float,
+    val rotationX: Float,
+    val rotationY: Float
+)
 
 class ModelRenderer(
     private val context: Context,
@@ -34,12 +47,18 @@ class ModelRenderer(
     private val mvpMatrix = FloatArray(16)
     private val modelViewMatrix = FloatArray(16)
 
-    var rotationX = 0f
-    var rotationY = 0f
-    var scale = 1.0f
-    var positionX = 0f
-    var positionY = 0f
+    // --- THREAD-SAFE FIX START ---
+    // Private properties to hold the current transformation state, only accessed on the GL thread.
+    private var currentRotationX = 0f
+    private var currentRotationY = 0f
+    private var currentScale = 0.0f // Start with 0 scale so nothing shows until a face is detected
+    private var currentPositionX = 0f
+    private var currentPositionY = 0f
     private var loggedInvalidModel = false
+
+    // A thread-safe queue to receive render tasks from the UI thread.
+    private val renderQueue = ConcurrentLinkedQueue<RenderTask>()
+    // --- THREAD-SAFE FIX END ---
 
     private val lightPosInWorldSpace = floatArrayOf(0.0f, 0.0f, 0.0f, 1.0f)
     private val lightPosInEyeSpace = FloatArray(4)
@@ -115,21 +134,44 @@ class ModelRenderer(
         Matrix.frustumM(projectionMatrix, 0, -ratio, ratio, -1f, 1f, 1f, 10f)
     }
 
+    /**
+     * Public method for the UI thread to submit a new set of transformations.
+     */
+    fun submitRenderTask(task: RenderTask) {
+        renderQueue.offer(task)
+    }
+
     override fun onDrawFrame(gl: GL10?) {
-        // Don't draw if the model is invalid
-        if (model.vertices.isEmpty() || model.indices.isEmpty()) {
-            // Only log once to avoid spam
+        // --- THREAD-SAFE FIX START ---
+        // Process all pending tasks from the queue to get the latest transformation data.
+        // This ensures all data updates happen safely on the GL thread.
+        while (renderQueue.peek() != null) {
+            renderQueue.poll()?.let {
+                currentPositionX = it.positionX
+                currentPositionY = it.positionY
+                currentScale = it.scale
+                currentRotationX = it.rotationX
+                currentRotationY = it.rotationY
+                Log.d("ModelRenderer", "Render task processed: Pos=(${it.positionX}, ${it.positionY}), Scale=${it.scale}")
+            }
+        }
+        // --- THREAD-SAFE FIX END ---
+
+        // Don't draw if the model is invalid or scale is zero
+        if (model.vertices.isEmpty() || model.indices.isEmpty() || currentScale == 0.0f) {
             if (!loggedInvalidModel) {
-                Log.w("ModelRenderer", "⚠️ Model is invalid or has no data, skipping draw call. Vertices: ${model.vertices.size}, Indices: ${model.indices.size}")
+                Log.w("ModelRenderer", "⚠️ Skipping draw call. Model invalid or scale is zero.")
                 loggedInvalidModel = true
             }
+            // We must still clear the screen, otherwise previous frames will persist
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
             return
         }
-        loggedInvalidModel = false // Reset if model becomes valid
+        loggedInvalidModel = false
 
         Log.d("ModelRenderer", "🎨 Drawing frame - Vertices: ${model.vertexCount}, Indices: ${model.indices.size}")
-        Log.d("ModelRenderer", "   - Transform: Scale=${String.format("%.2f", scale)}, RotX=${String.format("%.1f", rotationX)}, RotY=${String.format("%.1f", rotationY)}")
-        Log.d("ModelRenderer", "   - Position: X=${String.format("%.2f", positionX)}, Y=${String.format("%.2f", positionY)}")
+        Log.d("ModelRenderer", "   - Transform: Scale=${String.format("%.2f", currentScale)}, RotX=${String.format("%.1f", currentRotationX)}, RotY=${String.format("%.1f", currentRotationY)}")
+        Log.d("ModelRenderer", "   - Position: X=${String.format("%.2f", currentPositionX)}, Y=${String.format("%.2f", currentPositionY)}")
 
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
 
@@ -247,13 +289,11 @@ class ModelRenderer(
         Matrix.setLookAtM(viewMatrix, 0, 0f, 0f, 2.5f, 0f, 0f, 0f, 0f, 1f, 0f)
 
         Matrix.setIdentityM(modelMatrix, 0)
-        // Translate based on screen position
-        Matrix.translateM(modelMatrix, 0, positionX, positionY, 0f)
-        // Then scale
-        Matrix.scaleM(modelMatrix, 0, scale, scale, scale)
-        // Then rotate
-        Matrix.rotateM(modelMatrix, 0, rotationX, 1f, 0f, 0f)
-        Matrix.rotateM(modelMatrix, 0, rotationY, 0f, 1f, 0f)
+        // Apply transformations using the private, thread-safe properties
+        Matrix.translateM(modelMatrix, 0, currentPositionX, currentPositionY, 0f)
+        Matrix.scaleM(modelMatrix, 0, currentScale, currentScale, currentScale)
+        Matrix.rotateM(modelMatrix, 0, currentRotationX, 1f, 0f, 0f)
+        Matrix.rotateM(modelMatrix, 0, currentRotationY, 0f, 1f, 0f)
 
         Matrix.multiplyMM(modelViewMatrix, 0, viewMatrix, 0, modelMatrix, 0)
         Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelViewMatrix, 0)

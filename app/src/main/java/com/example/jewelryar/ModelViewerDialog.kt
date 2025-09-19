@@ -57,10 +57,16 @@ class ModelViewerDialog(
         }
 
         touchHandler = ModelTouchHandler(context) {
-            // Update renderer properties based on touch
-            renderer.scale = touchHandler.scaleFactor
-            renderer.rotationY = touchHandler.rotation[1] // Yaw
-            renderer.rotationX = touchHandler.rotation[0] // Pitch
+            // Create a render task with the latest data from the touch handler
+            val task = RenderTask(
+                positionX = 0f, // Dialog is always centered
+                positionY = 0f,
+                scale = touchHandler.scaleFactor,
+                rotationX = touchHandler.rotation[0], // Pitch
+                rotationY = touchHandler.rotation[1]  // Yaw
+            )
+            // Submit the task to the renderer and request a redraw
+            renderer.submitRenderTask(task)
             glSurfaceView.requestRender()
         }
 
@@ -71,7 +77,8 @@ class ModelViewerDialog(
 
         applyButton.setOnClickListener {
             android.util.Log.d("ModelViewerDialog", "🎯 Apply button clicked")
-            onApply(renderer.scale, floatArrayOf(renderer.rotationX, renderer.rotationY, 0f))
+            // Get the final values directly from the touch handler, not the renderer
+            onApply(touchHandler.scaleFactor, touchHandler.rotation)
             dismiss()
         }
         

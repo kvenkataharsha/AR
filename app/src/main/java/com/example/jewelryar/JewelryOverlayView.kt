@@ -205,27 +205,30 @@ class JewelryOverlayView @JvmOverloads constructor(
                 val neckPoints = calculateNeckPoints(face)
                 val headRotation = calculateHeadRotation(face)
 
-                // --- FIX START: CONTINUOUSLY UPDATE RENDERER DATA ---
+                // --- THREAD-SAFE FIX START ---
 
                 // 1. Convert neck screen coordinates to OpenGL clip space (-1 to 1)
-                // AND apply the vertical offset to move the model down.
                 val neckScreenY = neckPoints.first.y + 8.0f // Move down by 8 pixels
                 val normalizedX = (neckPoints.first.x - viewWidth / 2f) / (viewWidth / 2f)
                 val normalizedY = -(neckScreenY - viewHeight / 2f) / (viewHeight / 2f) // Y is inverted in OpenGL
 
-                // 2. Update all transformation properties on the renderer every frame
-                currentRenderer.positionX = normalizedX
-                currentRenderer.positionY = normalizedY
-                currentRenderer.scale = appliedScale * faceScale // Combine applied scale with face scale
-                currentRenderer.rotationX = appliedRotation[0] + headRotation[0]
-                currentRenderer.rotationY = appliedRotation[1] + headRotation[1]
+                // 2. Create a new RenderTask with the latest transformation data
+                val renderTask = RenderTask(
+                    positionX = normalizedX,
+                    positionY = normalizedY,
+                    scale = appliedScale * faceScale,
+                    rotationX = appliedRotation[0] + headRotation[0],
+                    rotationY = appliedRotation[1] + headRotation[1]
+                )
 
-                Log.d("JewelryOverlay", "🎯 Updating Renderer: Pos=(${String.format("%.2f", normalizedX)}, ${String.format("%.2f", normalizedY)}), Scale=${String.format("%.2f", currentRenderer.scale)}")
+                // 3. Submit the task to the renderer's thread-safe queue
+                currentRenderer.submitRenderTask(renderTask)
 
-                // 3. Request a new frame to be drawn with the updated data
-                currentGLView.requestRender()
+                Log.d("JewelryOverlay", "🎯 Submitted RenderTask: Pos=(${String.format("%.2f", normalizedX)}, ${String.format("%.2f", normalizedY)}), Scale=${String.format("%.2f", renderTask.scale)}")
 
-                // --- FIX END ---
+                // No need to call requestRender() anymore because the mode is RENDERMODE_CONTINUOUSLY
+                // --- THREAD-SAFE FIX END ---
+
             } else {
                 Log.w("JewelryOverlay", "⚠️ Cannot render - missing components:")
                 Log.w("JewelryOverlay", "   - Renderer: ${if (currentRenderer != null) "OK" else "MISSING"}")
@@ -234,17 +237,8 @@ class JewelryOverlayView @JvmOverloads constructor(
             }
         } ?: run {
             Log.d("JewelryOverlay", "🎯 No face detected, clearing GL view")
-            // If no face, clear the GLSurfaceView only if it's properly initialized
-            glSurfaceView?.let { glView ->
-                // Try to clear the GLSurfaceView
-                try {
-                    glView.queueEvent {
-                        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
-                    }
-                } catch (e: Exception) {
-                    Log.e("JewelryOverlay", "GLSurfaceView not ready for clear", e)
-                }
-            }
+            // If no face, submit a task with scale=0 to make the model disappear
+            modelRenderer?.submitRenderTask(RenderTask(0f, 0f, 0f, 0f, 0f))
         }
 
         invalidate() // Trigger redraw for 2D elements
@@ -263,13 +257,8 @@ class JewelryOverlayView @JvmOverloads constructor(
                     Log.d("JewelryOverlay", "🎯 Dialog apply clicked: scale=$scale, rotation=${rotation.contentToString()}")
                     appliedScale = scale
                     appliedRotation = rotation
-                    // Also apply to the main renderer immediately
-                    modelRenderer?.let {
-                        it.scale = scale
-                        it.rotationX = rotation[0]
-                        it.rotationY = rotation[1]
-                    }
-                    glSurfaceView?.requestRender() // Re-render with new settings
+                    // The main updateFace loop will now pick these new values up automatically.
+                    // No need to interact with the renderer directly from here.
                     invalidate() // Redraw 2D overlay info
                 }.show()
             }
@@ -297,7 +286,7 @@ class JewelryOverlayView @JvmOverloads constructor(
                 // Setup the renderer for the main view
                 modelRenderer = ModelRenderer(context, model)
                 glSurfaceView?.setRenderer(modelRenderer)
-                glSurfaceView?.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
+                glSurfaceView?.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
                 
                 Log.d("JewelryOverlay", "🎯 Renderer set up, creating dialog")
                 
@@ -306,13 +295,7 @@ class JewelryOverlayView @JvmOverloads constructor(
                     Log.d("JewelryOverlay", "🎯 Dialog apply clicked: scale=$scale, rotation=${rotation.contentToString()}")
                     appliedScale = scale
                     appliedRotation = rotation
-                    // Also apply to the main renderer immediately
-                    modelRenderer?.let {
-                        it.scale = scale
-                        it.rotationX = rotation[0]
-                        it.rotationY = rotation[1]
-                    }
-                    glSurfaceView?.requestRender() // Re-render with new settings
+                    // The main updateFace loop will now pick these new values up automatically.
                     invalidate() // Redraw 2D overlay info
                 }.show()
             }
