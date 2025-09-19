@@ -313,157 +313,106 @@ class JewelryOverlayView @JvmOverloads constructor(
     }
     
     private fun load3DModel(jewelryType: String, onModelLoaded: (Model3D) -> Unit = {}) {
-        Thread {
-            // --- NEW, ROBUST OBJ PARSER ---
-            try {
-                val modelPath = when (jewelryType.lowercase()) {
-                    "necklace" -> "models/necklace/11777_necklace_v1_l3.obj"
-                    "necklace1" -> "models/necklace1/necklace1.obj"
-                    "necklace2" -> "models/necklace2/necklace2.obj"
-                    "chain" -> "models/chain/11779_blueheart_v1_L3.obj"
-                    "simplechain", "simple chain" -> "models/simplechain/simple_chain_new.obj"
-                    "ring" -> "models/ring/sample_ring.obj"
-                    else -> "models/necklace/11777_necklace_v1_l3.obj"
+        // --- SYNCHRONOUS FIX: Remove background thread to prevent race conditions ---
+        try {
+            val modelPath = when (jewelryType.lowercase()) {
+                "simplechain" -> "models/simplechain/simple_chain_new.obj"
+                "chain" -> "models/chain/11779_blueheart_diffuse.obj"
+                "pendant" -> "models/pendant/11781_pendant_v1_l3.obj"
+                else -> {
+                    Log.e("OBJ_PARSER", "Unknown jewelry type: $jewelryType")
+                    current3DModel = null
+                    invalidate()
+                    return
                 }
-                Log.d("OBJ_PARSER", "--- Starting Load for: $modelPath ---")
-                
-                // Check if file exists first
-                try {
-                    assetManager.open(modelPath).close()
-                    Log.d("OBJ_PARSER", "✅ File exists: $modelPath")
-                } catch (e: Exception) {
-                    Log.e("OBJ_PARSER", "❌ File not found: $modelPath", e)
-                    Log.e("OBJ_PARSER", "💡 Available files in assets/models:")
-                    try {
-                        val files = assetManager.list("models")
-                        files?.forEach { Log.d("OBJ_PARSER", "   - $it") }
-                    } catch (listEx: Exception) {
-                        Log.e("OBJ_PARSER", "Could not list assets", listEx)
-                    }
-                    post { current3DModel = null; invalidate() }
-                    return@Thread
+            }
+            Log.d("OBJ_PARSER", "--- Starting Synchronous Load for: $modelPath ---")
+
+            // 1. Read all lines and data from the file into temporary lists
+            val tempVertices = mutableListOf<Float>()
+            val tempNormals = mutableListOf<Float>()
+            val tempTexCoords = mutableListOf<Float>()
+            val faceLines = mutableListOf<String>()
+
+            assetManager.open(modelPath).bufferedReader().forEachLine { line ->
+                val parts = line.trim().split("\\s+".toRegex())
+                when (parts.getOrNull(0)) {
+                    "v" -> if (parts.size >= 4) { tempVertices.add(parts[1].toFloat()); tempVertices.add(parts[2].toFloat()); tempVertices.add(parts[3].toFloat()) }
+                    "vn" -> if (parts.size >= 4) { tempNormals.add(parts[1].toFloat()); tempNormals.add(parts[2].toFloat()); tempNormals.add(parts[3].toFloat()) }
+                    "vt" -> if (parts.size >= 3) { tempTexCoords.add(parts[1].toFloat()); tempTexCoords.add(parts[2].toFloat()) }
+                    "f" -> faceLines.add(line)
                 }
+            }
+            Log.d("OBJ_PARSER", "1. Raw Data Read Complete.")
 
-                // 1. Read all lines and data from the file into temporary lists
-                val tempVertices = mutableListOf<Float>()
-                val tempNormals = mutableListOf<Float>()
-                val tempTexCoords = mutableListOf<Float>()
-                val faceLines = mutableListOf<String>()
+            // 2. Process faces to build final, indexed arrays for OpenGL
+            val finalVertices = mutableListOf<Float>()
+            val finalNormals = mutableListOf<Float>()
+            val finalTexCoords = mutableListOf<Float>()
+            val finalIndices = mutableListOf<Short>()
+            val vertexMap = mutableMapOf<String, Short>()
 
-                assetManager.open(modelPath).bufferedReader().forEachLine { line ->
-                    val parts = line.trim().split("\\s+".toRegex())
-                    when (parts.getOrNull(0)) {
-                        "v" -> if (parts.size >= 4) {
-                            tempVertices.add(parts[1].toFloat()); tempVertices.add(parts[2].toFloat()); tempVertices.add(parts[3].toFloat())
-                        }
-                        "vn" -> if (parts.size >= 4) {
-                            tempNormals.add(parts[1].toFloat()); tempNormals.add(parts[2].toFloat()); tempNormals.add(parts[3].toFloat())
-                        }
-                        "vt" -> if (parts.size >= 3) {
-                            tempTexCoords.add(parts[1].toFloat()); tempTexCoords.add(parts[2].toFloat())
-                        }
-                        "f" -> faceLines.add(line)
-                    }
-                }
-                Log.d("OBJ_PARSER", "1. Raw Data Read Complete.")
-                Log.d("OBJ_PARSER", "   - Raw Vertices: ${tempVertices.size / 3}")
-                Log.d("OBJ_PARSER", "   - Raw Normals: ${tempNormals.size / 3}")
-                Log.d("OBJ_PARSER", "   - Raw Faces: ${faceLines.size}")
+            for (line in faceLines) {
+                val faceParts = line.trim().split("\\s+".toRegex()).subList(1, line.trim().split("\\s+".toRegex()).size)
+                if (faceParts.size >= 3) {
+                    val firstCorner = faceParts[0]
+                    for (i in 1 until faceParts.size - 1) {
+                        val corners = listOf(firstCorner, faceParts[i], faceParts[i + 1])
+                        for (corner in corners) {
+                            if (vertexMap.containsKey(corner)) {
+                                finalIndices.add(vertexMap[corner]!!)
+                            } else {
+                                val newIndex = (finalVertices.size / 3).toShort()
+                                vertexMap[corner] = newIndex
+                                finalIndices.add(newIndex)
 
-                // 2. Process faces to build final, indexed arrays for OpenGL
-                val finalVertices = mutableListOf<Float>()
-                val finalNormals = mutableListOf<Float>()
-                val finalTexCoords = mutableListOf<Float>()
-                val finalIndices = mutableListOf<Short>()
-                val vertexMap = mutableMapOf<String, Short>()
+                                val indices = corner.split("/").map { if (it.isNotEmpty()) it.toInt() - 1 else -1 }
+                                val vIdx = indices.getOrElse(0) { -1 }
+                                val vtIdx = indices.getOrElse(1) { -1 }
+                                val vnIdx = indices.getOrElse(2) { -1 }
 
-                for (line in faceLines) {
-                    val faceParts = line.trim().split("\\s+".toRegex()).subList(1, line.trim().split("\\s+".toRegex()).size)
+                                if (vIdx in 0 until (tempVertices.size / 3)) {
+                                    finalVertices.add(tempVertices[vIdx * 3]); finalVertices.add(tempVertices[vIdx * 3 + 1]); finalVertices.add(tempVertices[vIdx * 3 + 2])
+                                } else { finalVertices.add(0f); finalVertices.add(0f); finalVertices.add(0f) }
 
-                    // Triangulate polygons (faces with > 3 vertices)
-                    if (faceParts.size >= 3) {
-                        val firstCorner = faceParts[0]
-                        for (i in 1 until faceParts.size - 1) {
-                            val corners = listOf(firstCorner, faceParts[i], faceParts[i + 1])
-                            for (corner in corners) {
-                                if (vertexMap.containsKey(corner)) {
-                                    finalIndices.add(vertexMap[corner]!!)
-                                } else {
-                                    val newIndex = (finalVertices.size / 3).toShort()
-                                    vertexMap[corner] = newIndex
-                                    finalIndices.add(newIndex)
+                                if (vtIdx in 0 until (tempTexCoords.size / 2)) {
+                                    finalTexCoords.add(tempTexCoords[vtIdx * 2]); finalTexCoords.add(tempTexCoords[vtIdx * 2 + 1])
+                                } else { finalTexCoords.add(0f); finalTexCoords.add(0f) }
 
-                                    val indices = corner.split("/").map { if (it.isNotEmpty()) it.toInt() - 1 else -1 }
-                                    val vIdx = indices.getOrElse(0) { -1 }
-                                    val vtIdx = indices.getOrElse(1) { -1 }
-                                    val vnIdx = indices.getOrElse(2) { -1 }
-
-                                    // Add vertex position (required)
-                                    if (vIdx in 0 until (tempVertices.size / 3)) {
-                                        finalVertices.add(tempVertices[vIdx * 3])
-                                        finalVertices.add(tempVertices[vIdx * 3 + 1])
-                                        finalVertices.add(tempVertices[vIdx * 3 + 2])
-                                    } else {
-                                        finalVertices.add(0f); finalVertices.add(0f); finalVertices.add(0f)
-                                        Log.w("OBJ_PARSER", "   - WARNING: Invalid vertex index '$vIdx' in corner '$corner'. Using (0,0,0).")
-                                    }
-
-                                    // Add texture coordinate (optional)
-                                    if (vtIdx in 0 until (tempTexCoords.size / 2)) {
-                                        finalTexCoords.add(tempTexCoords[vtIdx * 2])
-                                        finalTexCoords.add(tempTexCoords[vtIdx * 2 + 1])
-                                    } else {
-                                        finalTexCoords.add(0f); finalTexCoords.add(0f)
-                                    }
-
-                                    // Add normal (optional, but required for our shader)
-                                    if (vnIdx in 0 until (tempNormals.size / 3)) {
-                                        finalNormals.add(tempNormals[vnIdx * 3])
-                                        finalNormals.add(tempNormals[vnIdx * 3 + 1])
-                                        finalNormals.add(tempNormals[vnIdx * 3 + 2])
-                                    } else {
-                                        finalNormals.add(0f); finalNormals.add(0f); finalNormals.add(1f) // Default up
-                                    }
-                                }
+                                if (vnIdx in 0 until (tempNormals.size / 3)) {
+                                    finalNormals.add(tempNormals[vnIdx * 3]); finalNormals.add(tempNormals[vnIdx * 3 + 1]); finalNormals.add(tempNormals[vnIdx * 3 + 2])
+                                } else { finalNormals.add(0f); finalNormals.add(0f); finalNormals.add(1f) }
                             }
                         }
                     }
                 }
-                Log.d("OBJ_PARSER", "2. Vertex Processing Complete.")
-                Log.d("OBJ_PARSER", "   - Final Unique Vertices: ${finalVertices.size / 3}")
-                Log.d("OBJ_PARSER", "   - Final Indices: ${finalIndices.size}")
-
-                // 3. Create the Model3D object and post to the UI thread
-                if (finalVertices.isNotEmpty() && finalIndices.isNotEmpty()) {
-                    val model3D = Model3D(
-                        vertices = finalVertices.toFloatArray(),
-                        normals = finalNormals.toFloatArray(),
-                        textureCoords = finalTexCoords.toFloatArray(),
-                        indices = finalIndices.toShortArray(),
-                        vertexCount = finalVertices.size / 3,
-                        faceCount = finalIndices.size / 3
-                    )
-                    Log.d("OBJ_PARSER", "3. Model3D object created successfully.")
-                    Log.d("OBJ_PARSER", "   - Vertices: ${model3D.vertexCount}, Indices: ${model3D.indices.size}")
-                    Log.d("OBJ_PARSER", "   - First few vertices: ${finalVertices.take(9)}")
-                    post {
-                        current3DModel = model3D
-                        // Always create a new renderer for each model to ensure proper initialization
-                        onModelLoaded(model3D)
-                        invalidate()
-                    }
-                } else {
-                    Log.e("OBJ_PARSER", "3. ERROR: No valid geometry was processed. Model will not be loaded.")
-                    Log.e("OBJ_PARSER", "   - Final vertices: ${finalVertices.size}")
-                    Log.e("OBJ_PARSER", "   - Final indices: ${finalIndices.size}")
-                    post { current3DModel = null; invalidate() }
-                }
-
-            } catch (e: Exception) {
-                Log.e("OBJ_PARSER", "--- FATAL PARSING ERROR ---", e)
-                post { current3DModel = null; invalidate() }
             }
-        }.start()
+            Log.d("OBJ_PARSER", "2. Vertex Processing Complete.")
+
+            // 3. Create the Model3D object and call the callback directly
+            if (finalVertices.isNotEmpty() && finalIndices.isNotEmpty()) {
+                val model3D = Model3D(
+                    vertices = finalVertices.toFloatArray(),
+                    normals = finalNormals.toFloatArray(),
+                    textureCoords = finalTexCoords.toFloatArray(),
+                    indices = finalIndices.toShortArray(),
+                    vertexCount = finalVertices.size / 3,
+                    faceCount = finalIndices.size / 3
+                )
+                Log.d("OBJ_PARSER", "3. Model3D object created successfully.")
+                current3DModel = model3D
+                onModelLoaded(model3D)
+            } else {
+                Log.e("OBJ_PARSER", "3. ERROR: No valid geometry was processed.")
+                current3DModel = null
+            }
+
+        } catch (e: Exception) {
+            Log.e("OBJ_PARSER", "--- FATAL PARSING ERROR ---", e)
+            current3DModel = null
+        }
+        // Invalidate the view at the end
+        invalidate()
     }
 
     private fun load2DImage(jewelryType: String) {
